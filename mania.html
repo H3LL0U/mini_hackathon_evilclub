@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>my evil input - mania</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            background: #101b3b;
+            color: #eceae3;
+            font: 16px/1.5 ui-monospace, Menlo, Consolas, monospace;
+        }
+
+        #stage {
+            width: 800px;
+            height: 400px;
+            overflow: hidden;
+            position: relative;
+            background: #172854;
+        }
+
+        .mode-link {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #91aeea;
+            font-size: 12px;
+            text-decoration: none;
+        }
+
+        .readout {
+            position: absolute;
+            top: 18px;
+            left: 22px;
+            width: 180px;
+        }
+
+        .label {
+            margin: 0 0 2px;
+            color: #91aeea;
+            font-size: 12px;
+            letter-spacing: 2px;
+        }
+
+        .vol {
+            margin: 0;
+            color: #f3f0e8;
+            font-size: 48px;
+            line-height: 1.1;
+        }
+
+        .unit {
+            margin-left: 4px;
+            color: #91aeea;
+            font-size: 18px;
+        }
+
+        .meter {
+            height: 5px;
+            margin-top: 9px;
+            overflow: hidden;
+            background: #263d70;
+        }
+
+        #meter-fill {
+            display: block;
+            width: 0%;
+            height: 100%;
+            background: #ff4057;
+            transition: width 160ms ease-out;
+        }
+
+        .density {
+            position: absolute;
+            top: 52px;
+            right: 20px;
+            width: 150px;
+            color: #91aeea;
+            font-size: 12px;
+            text-align: right;
+        }
+
+        #density-value {
+            color: #f3f0e8;
+        }
+
+        #playfield {
+            position: absolute;
+            top: 96px;
+            left: 210px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            width: 380px;
+            height: 280px;
+        }
+
+        .lane {
+            position: relative;
+            overflow: hidden;
+            padding: 0;
+            border: 1px solid #3478f6;
+            border-radius: 2px;
+            background: #142953;
+            color: #91aeea;
+            cursor: pointer;
+        }
+
+        .lane:active {
+            background: #1c3974;
+        }
+
+        .lane:focus-visible {
+            outline: 2px solid #ff4057;
+            outline-offset: -3px;
+        }
+
+        .lane-key {
+            position: absolute;
+            bottom: 7px;
+            left: 0;
+            width: 100%;
+            color: #91aeea;
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+        .note {
+            position: absolute;
+            top: -20px;
+            left: 10px;
+            width: calc(100% - 20px);
+            height: 14px;
+            box-sizing: border-box;
+            border: 2px solid #ff4057;
+            border-radius: 5px;
+            background: #3478f6;
+            box-shadow: 0 0 12px #3478f688;
+            pointer-events: none;
+        }
+
+        .note.alt {
+            border-color: #3478f6;
+            background: #ff4057;
+            box-shadow: 0 0 12px #ff405788;
+        }
+
+        .hitline {
+            position: absolute;
+            z-index: 1;
+            top: 220px;
+            right: 0;
+            left: 0;
+            height: 2px;
+            background: #ff4057;
+            box-shadow: 0 0 10px #ff4057;
+            pointer-events: none;
+        }
+
+        #feedback {
+            position: absolute;
+            top: 76px;
+            left: 0;
+            width: 100%;
+            color: #ff4057;
+            font-size: 13px;
+            text-align: center;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="stage">
+        <a class="mode-link" href="index.html">&lt; CIRCLE MODE</a>
+        <div class="readout" aria-live="polite">
+            <p class="label">VOLUME / SCORE</p>
+            <p class="vol"><span id="vol">0</span><span class="unit">%</span></p>
+            <div class="meter" aria-hidden="true"><span id="meter-fill"></span></div>
+        </div>
+        <div class="density">NOTES / SEC <span id="density-value">1.1</span></div>
+        <div id="feedback" aria-live="polite"></div>
+        <div id="playfield" aria-label="Four-lane rhythm field">
+            <button class="lane" type="button" data-lane="0" aria-label="Lane D"><span
+                    class="lane-key">D</span></button>
+            <button class="lane" type="button" data-lane="1" aria-label="Lane F"><span
+                    class="lane-key">F</span></button>
+            <button class="lane" type="button" data-lane="2" aria-label="Lane J"><span
+                    class="lane-key">J</span></button>
+            <button class="lane" type="button" data-lane="3" aria-label="Lane K"><span
+                    class="lane-key">K</span></button>
+            <div class="hitline" aria-hidden="true"></div>
+        </div>
+    </div>
+
+    <script>
+        const stage = document.getElementById('stage');
+        const lanes = Array.from(document.querySelectorAll('.lane'));
+        const scoreOutput = document.getElementById('vol');
+        const meterFill = document.getElementById('meter-fill');
+        const densityOutput = document.getElementById('density-value');
+        const feedback = document.getElementById('feedback');
+        const hitSound = new Audio('assets/osu-hit-sound.mp3');
+        hitSound.preload = 'auto';
+        const backgroundMusic = new Audio('assets/45256894-beware-from-evil-373784.mp3');
+        backgroundMusic.loop = true;
+        backgroundMusic.preload = 'auto';
+        const hitLineY = 220;
+        const notes = [];
+        const laneKeys = ['d', 'f', 'j', 'k'];
+        let score = 0;
+        let spawnTimer;
+        let feedbackTimer;
+        let musicStarted = false;
+
+        function spawnInterval() {
+            return Math.max(220, 700 - score * 5);
+        }
+
+        function travelDuration() {
+            return Math.max(600, 1250 - score * 6);
+        }
+
+        function timingWindow() {
+            return Math.max(24, 36 - score * 0.1);
+        }
+
+        function hitGrade(error) {
+            if (error <= 8) return { points: 3, label: 'PERFECT' };
+            if (error <= 18) return { points: 2, label: 'GOOD' };
+            return { points: 1, label: 'BAD' };
+        }
+
+        function updateScore() {
+            scoreOutput.textContent = score;
+            meterFill.style.width = `${score}%`;
+            densityOutput.textContent = (1000 / spawnInterval()).toFixed(1);
+            updateMusicVolume();
+        }
+
+        function playHitSound() {
+            hitSound.volume = score / 100;
+            hitSound.currentTime = 0;
+            hitSound.play().catch(() => { });
+        }
+
+        function updateMusicVolume() {
+            backgroundMusic.volume = 0.08 + score / 100 * 0.62;
+        }
+
+        function startBackgroundMusic() {
+            if (musicStarted) return;
+            musicStarted = true;
+            backgroundMusic.play().catch(() => {
+                musicStarted = false;
+            });
+        }
+
+        function showFeedback(message, isHit) {
+            clearTimeout(feedbackTimer);
+            feedback.textContent = message;
+            feedback.style.color = isHit ? '#91aeea' : '#ff4057';
+            feedbackTimer = setTimeout(() => feedback.textContent = '', 500);
+        }
+
+        function changeVolume(amount) {
+            score = Math.max(0, Math.min(100, score + amount));
+            updateScore();
+        }
+
+        function spawnNote() {
+            const laneIndex = Math.floor(Math.random() * lanes.length);
+            const element = document.createElement('span');
+            element.className = `note${Math.random() < 0.5 ? ' alt' : ''}`;
+            lanes[laneIndex].appendChild(element);
+            notes.push({
+                element,
+                laneIndex,
+                spawnedAt: performance.now(),
+                duration: travelDuration(),
+                y: -20
+            });
+        }
+
+        function removeNote(index) {
+            notes[index].element.remove();
+            notes.splice(index, 1);
+        }
+
+        function hitLane(laneIndex) {
+            let candidateIndex = -1;
+            let closestDistance = Infinity;
+            for (let index = 0; index < notes.length; index += 1) {
+                if (notes[index].laneIndex !== laneIndex) continue;
+                const distance = Math.abs(notes[index].y - hitLineY);
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    candidateIndex = index;
+                }
+            }
+
+            if (candidateIndex !== -1 && closestDistance <= timingWindow()) {
+                const grade = hitGrade(closestDistance);
+                removeNote(candidateIndex);
+                changeVolume(grade.points);
+                playHitSound();
+                showFeedback(`${grade.label} +${grade.points}`, true);
+            } else {
+                changeVolume(-3);
+                showFeedback('MISS -3', false);
+            }
+        }
+
+        function scheduleSpawn() {
+            spawnTimer = setTimeout(() => {
+                spawnNote();
+                scheduleSpawn();
+            }, spawnInterval());
+        }
+
+        function animate(now) {
+            for (let index = notes.length - 1; index >= 0; index -= 1) {
+                const note = notes[index];
+                const progress = (now - note.spawnedAt) / note.duration;
+                note.y = -20 + progress * (hitLineY + 20);
+                note.element.style.top = `${note.y}px`;
+                if (note.y > hitLineY + timingWindow()) {
+                    removeNote(index);
+                    changeVolume(-3);
+                    showFeedback('DROPPED -3', false);
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        document.addEventListener('keydown', (event) => {
+            const laneIndex = laneKeys.indexOf(event.key.toLowerCase());
+            if (laneIndex === -1 || event.repeat) return;
+            event.preventDefault();
+            hitLane(laneIndex);
+        });
+
+        stage.addEventListener('pointerdown', startBackgroundMusic);
+        document.addEventListener('keydown', startBackgroundMusic);
+
+        lanes.forEach((lane, index) => {
+            lane.addEventListener('click', () => hitLane(index));
+        });
+
+        updateScore();
+        startBackgroundMusic();
+        scheduleSpawn();
+        requestAnimationFrame(animate);
+    </script>
+</body>
+
+</html>

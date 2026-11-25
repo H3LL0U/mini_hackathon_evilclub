@@ -1,24 +1,19 @@
-# <your project's name>
+# EVIL OSU! sound controlls
 
-<!-- This README is the front door of your project: the gallery shows its first lines. -->
 
-## what it is
+## What is this
 
-<one or two sentences: what is your evil input?>
+This project is using an osu! inspired mini game to control your volume.
 
-## what input it collects
+## How it works
 
-<text? a volume? a phone number? brightness? a time? and how does it make that miserable?>
 
-## screenshot
+### OSU!main
+You have to click in time in order to increase your volume or miss/misstime your click to decrease your volume. When there is a slider you need to hold the key all the way
 
-<!-- drag a screenshot or a gif into this file on github.com to upload it -->
-![screenshot](screenshot.png)
+### OSU!mania
+you have to click the correct key in the correct time to increase the score.
 
-## live
+The timing gets harder as the score gets higher.
 
-https://<your-github-name>.github.io/<this-repo>/
 
-## how to run it
-
-open `index.html` in a browser. that's it.

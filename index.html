@@ -11,7 +11,7 @@
     html,
     body {
       margin: 0;
-      background: #292b47;
+      background: #101b3b;
       color: #eceae3;
       font: 16px/1.5 ui-monospace, Menlo, Consolas, monospace;
     }
@@ -21,7 +21,7 @@
       height: 400px;
       overflow: hidden;
       position: relative;
-      background: #23243d;
+      background: #172854;
     }
 
     .readout {
@@ -34,7 +34,7 @@
 
     .label {
       margin: 0 0 2px;
-      color: #a4a6c2;
+      color: #91aeea;
       font-size: 12px;
       letter-spacing: 2px;
     }
@@ -48,7 +48,7 @@
 
     .unit {
       margin-left: 4px;
-      color: #a4a6c2;
+      color: #91aeea;
       font-size: 18px;
     }
 
@@ -56,36 +56,116 @@
       height: 5px;
       margin-top: 9px;
       overflow: hidden;
-      background: #3b3d5a;
+      background: #263d70;
     }
 
     #meter-fill {
       display: block;
       width: 0%;
       height: 100%;
-      background: #f2c14e;
+      background: #ff4057;
       transition: width 160ms ease-out;
+    }
+
+    #judgement {
+      margin: 7px 0 0;
+      color: #91aeea;
+      font-size: 11px;
+    }
+
+    .mode-link {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      color: #91aeea;
+      font-size: 12px;
+      text-decoration: none;
+    }
+
+    #slider-track {
+      display: none;
+      position: absolute;
+      z-index: 0;
+      width: 160px;
+      height: 12px;
+      box-sizing: border-box;
+      border: 2px solid #3478f6;
+      border-radius: 10px;
+      background: #101b3b;
+      pointer-events: none;
+    }
+
+    #slider-head {
+      position: absolute;
+      top: -6px;
+      left: 0;
+      width: 20px;
+      height: 20px;
+      box-sizing: border-box;
+      border: 3px solid #ff4057;
+      border-radius: 50%;
+      background: #3478f6;
+    }
+
+    #stage.slider-note #slider-track {
+      display: block;
+    }
+
+    #stage.slider-note #target {
+      cursor: grab;
+      touch-action: none;
+    }
+
+    #stage.slider-note #target.is-holding {
+      cursor: grabbing;
     }
 
     #target {
       position: absolute;
+      z-index: 1;
+      box-sizing: border-box;
       width: 56px;
       height: 56px;
       padding: 0;
-      border: 3px solid #fff0c2;
+      border: 3px solid #ff4057;
       border-radius: 50%;
-      background: #f26b5b;
+      background: #3478f6;
       cursor: pointer;
-      box-shadow: 0 0 22px #f26b5b88;
+      box-shadow: 0 0 22px #3478f688;
       transition: left 120ms ease-out, top 120ms ease-out, transform 100ms ease-out;
     }
 
+    #approach {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 180px;
+      height: 180px;
+      box-sizing: border-box;
+      border: 3px solid #ff4057;
+      border-radius: 50%;
+      pointer-events: none;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    @keyframes close-in {
+      to {
+        transform: translate(-50%, -50%) scale(.31);
+      }
+    }
+
+    @keyframes slider-run {
+      to {
+        transform: translateX(140px);
+      }
+    }
+
     #target:hover {
-      transform: scale(1.08);
+      transform: scale(1.06);
     }
 
     #target:focus-visible {
-      outline: 3px solid #f2c14e;
+      outline: 3px solid #3478f6;
       outline-offset: 4px;
     }
   </style>
@@ -93,47 +173,253 @@
 
 <body>
   <div id="stage">
+    <a class="mode-link" href="mania.html">MANIA MODE &gt;</a>
     <div class="readout" aria-live="polite">
       <p class="label">VOLUME / SCORE</p>
       <p class="vol"><span id="vol">0</span><span class="unit">%</span></p>
       <div class="meter" aria-hidden="true"><span id="meter-fill"></span></div>
+      <p id="judgement" aria-live="polite">READY</p>
     </div>
-    <button id="target" type="button" aria-label="Hit the moving circle"></button>
+    <button id="target" type="button" aria-label="Hit the moving circle at the right time">
+      <span id="approach" aria-hidden="true"></span>
+    </button>
+    <div id="slider-track" aria-hidden="true"><span id="slider-head"></span></div>
   </div>
   <script>
     const stage = document.getElementById('stage');
     const target = document.getElementById('target');
+    const approach = document.getElementById('approach');
+    const sliderTrack = document.getElementById('slider-track');
+    const sliderHead = document.getElementById('slider-head');
     const scoreOutput = document.getElementById('vol');
     const meterFill = document.getElementById('meter-fill');
+    const judgement = document.getElementById('judgement');
+    const hitSound = new Audio('assets/osu-hit-sound.mp3');
+    hitSound.preload = 'auto';
+    const backgroundMusic = new Audio('assets/45256894-beware-from-evil-373784.mp3');
+    backgroundMusic.loop = true;
+    backgroundMusic.preload = 'auto';
     let score = 0;
+    let musicStarted = false;
+    let roundTimer;
+    let sliderTimer;
+    let roundActive = false;
+    let noteType = 'circle';
+    let sliderHolding = false;
+    let sliderMissed = false;
+    let sliderPointerId = null;
+    let sliderStartedAt = 0;
+    let sliderDuration = 0;
+    let sliderX = 0;
+    let sliderY = 0;
+    let sliderPointerX = 0;
+    let sliderPointerY = 0;
+    let sliderClickUntil = 0;
+    let sliderPoints = 1;
+    let sliderGrade = 'BAD';
+    const sliderLength = 140;
 
     function moveTarget() {
+      noteType = score > 0 && Math.random() < 0.3 ? 'slider' : 'circle';
+      stage.classList.toggle('slider-note', noteType === 'slider');
       const maxX = stage.clientWidth - target.offsetWidth;
-      const minY = 88;
-      const maxY = stage.clientHeight - target.offsetHeight;
-      target.style.left = `${Math.random() * maxX}px`;
-      target.style.top = `${minY + Math.random() * (maxY - minY)}px`;
+      if (noteType === 'slider') {
+        sliderX = 18 + Math.random() * (stage.clientWidth - 196);
+        sliderY = 125 + Math.random() * (stage.clientHeight - 181);
+        sliderTrack.style.left = `${sliderX}px`;
+        sliderTrack.style.top = `${sliderY}px`;
+        target.style.left = `${sliderX - 18}px`;
+        target.style.top = `${sliderY - 22}px`;
+      } else {
+        const minY = 88;
+        const maxY = stage.clientHeight - target.offsetHeight;
+        target.style.left = `${Math.random() * maxX}px`;
+        target.style.top = `${minY + Math.random() * (maxY - minY)}px`;
+      }
     }
 
     function updateScore() {
       scoreOutput.textContent = score;
       meterFill.style.width = `${score}%`;
+      updateMusicVolume();
     }
 
-    target.addEventListener('click', () => {
-      score = Math.min(100, score + 1);
+    function hitGrade(error) {
+      if (error <= 5) return { points: 3, label: 'PERFECT' };
+      if (error <= 13) return { points: 2, label: 'GOOD' };
+      return { points: 1, label: 'BAD' };
+    }
+
+    function playHitSound() {
+      hitSound.volume = score / 100;
+      hitSound.currentTime = 0;
+      hitSound.play().catch(() => { });
+    }
+
+    function updateMusicVolume() {
+      backgroundMusic.volume = 0.08 + score / 100 * 0.62;
+    }
+
+    function startBackgroundMusic() {
+      if (musicStarted) return;
+      musicStarted = true;
+      backgroundMusic.play().catch(() => {
+        musicStarted = false;
+      });
+    }
+
+    function closingTime() {
+      return Math.max(500, 1400 - score * 8);
+    }
+
+    function timingWindow() {
+      return Math.max(6, 24 - score * 0.18);
+    }
+
+    function startRound() {
+      const duration = closingTime();
+      sliderHolding = false;
+      sliderMissed = false;
+      sliderPointerId = null;
+      target.classList.remove('is-holding');
+      roundActive = true;
+      approach.style.animation = 'none';
+      approach.offsetWidth;
+      approach.style.animation = `close-in ${duration}ms linear forwards`;
+      sliderHead.style.animation = 'none';
+      roundTimer = setTimeout(() => {
+        if (!roundActive) return;
+        roundActive = false;
+        miss();
+        moveTarget();
+        startRound();
+      }, duration);
+    }
+
+    function miss() {
+      score = Math.max(0, score - 1);
       updateScore();
+    }
+
+    function finishSlider(success) {
+      clearTimeout(sliderTimer);
+      sliderClickUntil = performance.now() + 100;
+      sliderHolding = false;
+      sliderPointerId = null;
+      target.classList.remove('is-holding');
+      if (success) {
+        score = Math.min(100, score + sliderPoints);
+        updateScore();
+        judgement.textContent = `${sliderGrade} +${sliderPoints}`;
+        playHitSound();
+      } else {
+        miss();
+        judgement.textContent = 'MISS -1';
+      }
       moveTarget();
+      startRound();
+    }
+
+    function checkSliderFollow() {
+      if (!sliderHolding) return;
+      const progress = Math.min(1, (performance.now() - sliderStartedAt) / sliderDuration);
+      const stageRect = stage.getBoundingClientRect();
+      const expectedX = sliderX + 10 + sliderLength * progress;
+      const expectedY = sliderY + 6;
+      const pointerX = sliderPointerX - stageRect.left;
+      const pointerY = sliderPointerY - stageRect.top;
+      if (Math.hypot(pointerX - expectedX, pointerY - expectedY) > 38) {
+        sliderMissed = true;
+      }
+      requestAnimationFrame(checkSliderFollow);
+    }
+
+    function beginSlider(event, grade) {
+      roundActive = false;
+      clearTimeout(roundTimer);
+      sliderHolding = true;
+      sliderMissed = false;
+      sliderPointerId = event.pointerId;
+      sliderPointerX = event.clientX;
+      sliderPointerY = event.clientY;
+      sliderStartedAt = performance.now();
+      sliderDuration = Math.max(450, 850 - score * 4);
+      sliderPoints = grade.points;
+      sliderGrade = grade.label;
+      target.classList.add('is-holding');
+      target.setPointerCapture(event.pointerId);
+      sliderHead.style.animation = 'none';
+      sliderHead.offsetWidth;
+      sliderHead.style.animation = `slider-run ${sliderDuration}ms linear forwards`;
+      sliderTimer = setTimeout(() => finishSlider(!sliderMissed), sliderDuration);
+      requestAnimationFrame(checkSliderFollow);
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    target.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (event.detail > 0 && performance.now() < sliderClickUntil) return;
+      const ringSize = approach.getBoundingClientRect().width;
+      const targetSize = target.getBoundingClientRect().width;
+      const inTimingWindow = ringSize >= targetSize - 2 && ringSize <= targetSize + timingWindow();
+
+      if (!roundActive || !inTimingWindow || noteType === 'slider') {
+        miss();
+        return;
+      }
+
+      const grade = hitGrade(Math.abs(ringSize - targetSize));
+      roundActive = false;
+      clearTimeout(roundTimer);
+      score = Math.min(100, score + grade.points);
+      updateScore();
+      judgement.textContent = `${grade.label} +${grade.points}`;
+      playHitSound();
+      moveTarget();
+      startRound();
     });
 
-    stage.addEventListener('click', (event) => {
-      if (event.target !== target) {
-        score = Math.max(0, score - 1);
-        updateScore();
+    target.addEventListener('pointerdown', (event) => {
+      if (noteType !== 'slider' || !roundActive) return;
+      const ringSize = approach.getBoundingClientRect().width;
+      const targetSize = target.getBoundingClientRect().width;
+      if (ringSize >= targetSize - 2 && ringSize <= targetSize + timingWindow()) {
+        beginSlider(event, hitGrade(Math.abs(ringSize - targetSize)));
       }
     });
 
+    stage.addEventListener('pointermove', (event) => {
+      if (!sliderHolding || event.pointerId !== sliderPointerId) return;
+      sliderPointerX = event.clientX;
+      sliderPointerY = event.clientY;
+    });
+
+    stage.addEventListener('pointerup', (event) => {
+      if (sliderHolding && event.pointerId === sliderPointerId) {
+        finishSlider(false);
+      }
+    });
+
+    stage.addEventListener('pointercancel', (event) => {
+      if (sliderHolding && event.pointerId === sliderPointerId) {
+        finishSlider(false);
+      }
+    });
+
+    stage.addEventListener('pointerdown', startBackgroundMusic);
+    document.addEventListener('keydown', startBackgroundMusic);
+
+    stage.addEventListener('click', (event) => {
+      if (event.target !== target) {
+        miss();
+      }
+    });
+
+    updateMusicVolume();
+    startBackgroundMusic();
     moveTarget();
+    startRound();
   </script>
 </body>
 
