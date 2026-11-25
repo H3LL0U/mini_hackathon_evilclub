@@ -21,7 +21,7 @@
       height: 400px;
       overflow: hidden;
       position: relative;
-      background: #172854;
+      background: linear-gradient(rgba(68, 0, 12, .48), rgba(68, 0, 12, .48)), url("assets/dark.webp") center / cover no-repeat;
     }
 
     .readout {
@@ -75,11 +75,26 @@
 
     .mode-link {
       position: absolute;
-      top: 20px;
-      right: 20px;
-      color: #91aeea;
+      z-index: 4;
+      inset: auto 14px 14px auto;
+      padding: 7px 11px;
+      border: 1px solid #91aeea;
+      border-left: 4px solid #ff4057;
+      background: #101b3b;
+      color: #f3f0e8;
       font-size: 12px;
+      font-weight: 700;
       text-decoration: none;
+      box-shadow: 0 3px 0 #3478f6;
+    }
+
+    .mode-link:hover {
+      background: #3478f6;
+    }
+
+    .mode-link:focus-visible {
+      outline: 2px solid #ff4057;
+      outline-offset: 3px;
     }
 
     #slider-track {
@@ -200,7 +215,6 @@
     backgroundMusic.loop = true;
     backgroundMusic.preload = 'auto';
     let score = 0;
-    let musicStarted = false;
     let roundTimer;
     let sliderTimer;
     let roundActive = false;
@@ -251,25 +265,23 @@
     }
 
     function playHitSound() {
-      hitSound.volume = score / 100;
+      hitSound.volume = 1;
       hitSound.currentTime = 0;
       hitSound.play().catch(() => { });
     }
 
     function updateMusicVolume() {
-      backgroundMusic.volume = 0.08 + score / 100 * 0.62;
-    }
-
-    function startBackgroundMusic() {
-      if (musicStarted) return;
-      musicStarted = true;
-      backgroundMusic.play().catch(() => {
-        musicStarted = false;
-      });
+      backgroundMusic.volume = score / 100;
+      if (score === 0) {
+        backgroundMusic.pause();
+        backgroundMusic.currentTime = 0;
+      } else if (backgroundMusic.paused) {
+        backgroundMusic.play().catch(() => { });
+      }
     }
 
     function closingTime() {
-      return Math.max(500, 1400 - score * 8);
+      return Math.max(650, 1900 - score * 12);
     }
 
     function timingWindow() {
@@ -343,7 +355,7 @@
       sliderPointerX = event.clientX;
       sliderPointerY = event.clientY;
       sliderStartedAt = performance.now();
-      sliderDuration = Math.max(450, 850 - score * 4);
+      sliderDuration = Math.max(550, 1100 - score * 5);
       sliderPoints = grade.points;
       sliderGrade = grade.label;
       target.classList.add('is-holding');
@@ -407,9 +419,6 @@
       }
     });
 
-    stage.addEventListener('pointerdown', startBackgroundMusic);
-    document.addEventListener('keydown', startBackgroundMusic);
-
     stage.addEventListener('click', (event) => {
       if (event.target !== target) {
         miss();
@@ -417,7 +426,6 @@
     });
 
     updateMusicVolume();
-    startBackgroundMusic();
     moveTarget();
     startRound();
   </script>
