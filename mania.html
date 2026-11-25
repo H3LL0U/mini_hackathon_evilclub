@@ -19,16 +19,31 @@
             height: 400px;
             overflow: hidden;
             position: relative;
-            background: #172854;
+            background: linear-gradient(rgba(68, 0, 12, .48), rgba(68, 0, 12, .48)), url("assets/dark.webp") center / cover no-repeat;
         }
 
         .mode-link {
             position: absolute;
-            top: 20px;
-            right: 20px;
-            color: #91aeea;
+            z-index: 4;
+            inset: auto 14px 14px auto;
+            padding: 7px 11px;
+            border: 1px solid #91aeea;
+            border-left: 4px solid #ff4057;
+            background: #101b3b;
+            color: #f3f0e8;
             font-size: 12px;
+            font-weight: 700;
             text-decoration: none;
+            box-shadow: 0 3px 0 #3478f6;
+        }
+
+        .mode-link:hover {
+            background: #3478f6;
+        }
+
+        .mode-link:focus-visible {
+            outline: 2px solid #ff4057;
+            outline-offset: 3px;
         }
 
         .readout {
@@ -104,13 +119,13 @@
             padding: 0;
             border: 1px solid #3478f6;
             border-radius: 2px;
-            background: #142953;
+            background: rgba(20, 41, 83, .72);
             color: #91aeea;
             cursor: pointer;
         }
 
         .lane:active {
-            background: #1c3974;
+            background: rgba(28, 57, 116, .86);
         }
 
         .lane:focus-visible {
@@ -214,7 +229,6 @@
         let score = 0;
         let spawnTimer;
         let feedbackTimer;
-        let musicStarted = false;
 
         function spawnInterval() {
             return Math.max(220, 700 - score * 5);
@@ -242,21 +256,19 @@
         }
 
         function playHitSound() {
-            hitSound.volume = score / 100;
+            hitSound.volume = 1;
             hitSound.currentTime = 0;
             hitSound.play().catch(() => { });
         }
 
         function updateMusicVolume() {
-            backgroundMusic.volume = 0.08 + score / 100 * 0.62;
-        }
-
-        function startBackgroundMusic() {
-            if (musicStarted) return;
-            musicStarted = true;
-            backgroundMusic.play().catch(() => {
-                musicStarted = false;
-            });
+            backgroundMusic.volume = score / 100;
+            if (score === 0) {
+                backgroundMusic.pause();
+                backgroundMusic.currentTime = 0;
+            } else if (backgroundMusic.paused) {
+                backgroundMusic.play().catch(() => { });
+            }
         }
 
         function showFeedback(message, isHit) {
@@ -343,15 +355,11 @@
             hitLane(laneIndex);
         });
 
-        stage.addEventListener('pointerdown', startBackgroundMusic);
-        document.addEventListener('keydown', startBackgroundMusic);
-
         lanes.forEach((lane, index) => {
             lane.addEventListener('click', () => hitLane(index));
         });
 
         updateScore();
-        startBackgroundMusic();
         scheduleSpawn();
         requestAnimationFrame(animate);
     </script>
