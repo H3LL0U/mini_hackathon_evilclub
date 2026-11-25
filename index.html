@@ -1,46 +1,140 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>my evil input</title>
-<style>
-  /* Everything you make goes inside #stage: exactly 800 × 400 pixels. The gallery shows
-     this box (shrunk to fit), so anything outside it won't be seen. */
-  html, body { margin: 0; background: #292b47; color: #eceae3; font: 16px/1.5 ui-monospace, Menlo, Consolas, monospace; }
-  #stage {
-    width: 800px; height: 400px; overflow: hidden; position: relative;
-    display: grid; place-items: center; text-align: center;
-    background: #23243d;
-  }
 
-  /* ---- the example below: delete it and build your own ---- */
-  .vol { font-size: 64px; margin: 0; }
-  button { font: inherit; color: inherit; background: #3f4168; border: 0; border-radius: 6px; padding: .6rem 1.2rem; cursor: pointer; }
-  .hint { color: #8d8aa6; font-size: 14px; }
-</style>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>my evil input</title>
+  <style>
+    /* Everything you make goes inside #stage: exactly 800 × 400 pixels. The gallery shows
+     this box (shrunk to fit), so anything outside it won't be seen. */
+    html,
+    body {
+      margin: 0;
+      background: #292b47;
+      color: #eceae3;
+      font: 16px/1.5 ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    #stage {
+      width: 800px;
+      height: 400px;
+      overflow: hidden;
+      position: relative;
+      background: #23243d;
+    }
+
+    .readout {
+      position: absolute;
+      top: 18px;
+      left: 22px;
+      width: 180px;
+      pointer-events: none;
+    }
+
+    .label {
+      margin: 0 0 2px;
+      color: #a4a6c2;
+      font-size: 12px;
+      letter-spacing: 2px;
+    }
+
+    .vol {
+      margin: 0;
+      color: #f3f0e8;
+      font-size: 48px;
+      line-height: 1.1;
+    }
+
+    .unit {
+      margin-left: 4px;
+      color: #a4a6c2;
+      font-size: 18px;
+    }
+
+    .meter {
+      height: 5px;
+      margin-top: 9px;
+      overflow: hidden;
+      background: #3b3d5a;
+    }
+
+    #meter-fill {
+      display: block;
+      width: 0%;
+      height: 100%;
+      background: #f2c14e;
+      transition: width 160ms ease-out;
+    }
+
+    #target {
+      position: absolute;
+      width: 56px;
+      height: 56px;
+      padding: 0;
+      border: 3px solid #fff0c2;
+      border-radius: 50%;
+      background: #f26b5b;
+      cursor: pointer;
+      box-shadow: 0 0 22px #f26b5b88;
+      transition: left 120ms ease-out, top 120ms ease-out, transform 100ms ease-out;
+    }
+
+    #target:hover {
+      transform: scale(1.08);
+    }
+
+    #target:focus-visible {
+      outline: 3px solid #f2c14e;
+      outline-offset: 4px;
+    }
+  </style>
 </head>
+
 <body>
-<div id="stage">
-  <!-- example evil input: volume you have to pump up by hand, and it leaks back down -->
-  <div>
-    <p class="vol"><span id="vol">0</span>%</p>
-    <button id="pump">pump volume</button>
-    <p class="hint">it leaks. keep pumping.</p>
+  <div id="stage">
+    <div class="readout" aria-live="polite">
+      <p class="label">VOLUME / SCORE</p>
+      <p class="vol"><span id="vol">0</span><span class="unit">%</span></p>
+      <div class="meter" aria-hidden="true"><span id="meter-fill"></span></div>
+    </div>
+    <button id="target" type="button" aria-label="Hit the moving circle"></button>
   </div>
-</div>
-<script>
-  // the example: delete this too
-  let volume = 0;
-  const out = document.getElementById('vol');
-  document.getElementById('pump').addEventListener('click', () => {
-    volume = Math.min(100, volume + 7);
-    out.textContent = Math.round(volume);
-  });
-  setInterval(() => {
-    volume = Math.max(0, volume - 1);
-    out.textContent = Math.round(volume);
-  }, 120);
-</script>
+  <script>
+    const stage = document.getElementById('stage');
+    const target = document.getElementById('target');
+    const scoreOutput = document.getElementById('vol');
+    const meterFill = document.getElementById('meter-fill');
+    let score = 0;
+
+    function moveTarget() {
+      const maxX = stage.clientWidth - target.offsetWidth;
+      const minY = 88;
+      const maxY = stage.clientHeight - target.offsetHeight;
+      target.style.left = `${Math.random() * maxX}px`;
+      target.style.top = `${minY + Math.random() * (maxY - minY)}px`;
+    }
+
+    function updateScore() {
+      scoreOutput.textContent = score;
+      meterFill.style.width = `${score}%`;
+    }
+
+    target.addEventListener('click', () => {
+      score = Math.min(100, score + 1);
+      updateScore();
+      moveTarget();
+    });
+
+    stage.addEventListener('click', (event) => {
+      if (event.target !== target) {
+        score = Math.max(0, score - 1);
+        updateScore();
+      }
+    });
+
+    moveTarget();
+  </script>
 </body>
+
 </html>
